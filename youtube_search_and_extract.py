@@ -1,54 +1,124 @@
-import os
-import pandas as pd
-import re
-from bs4 import BeautifulSoup
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, TextClassificationPipeline
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+import logging
 
-# 환경 변수 설정
-os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+# 로깅 설정
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+file_handler = logging.FileHandler('youtube_api.log')
+file_handler.setLevel(logging.ERROR)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(file_handler)
 
-# 한국어 감정 분석 모델 사용
-model_name = "smilegate-ai/kor_unsmile"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSequenceClassification.from_pretrained(model_name)
-sentiment_pipeline = TextClassificationPipeline(model=model, tokenizer=tokenizer, max_length=512, truncation=True)
+# 동영상 리스트 가져오기
+def youtube_search(api_key, query, max_results=50):
+    youtube = build('youtube', 'v3', developerKey=api_key)
+    videos = []
+    next_page_token = None
 
-# 텍스트 전처리 함수
-def preprocess_text(text):
-    if text:
-        text = BeautifulSoup(text, "html.parser").get_text()
-    text = re.sub(r'http\S+|www.\S+', '', text)
-    text = re.sub(r'[^a-zA-Z가-힣\s]', '', text)
-    text = text.lower()
-    text = ' '.join(text.split())
-    return text
+    while len(videos) < max_results:
+        try:
+            search_response = youtube.search().list(
+                q=query,
+                part='id,snippet',
+                maxResults=min(max_results - len(videos), 50),
+                pageToken=next_page_token  # 다음 페이지 토큰 설정
+            ).execute()
 
-# 댓글을 개별적으로 분리
-def split_comments(text):
-    if pd.isna(text):
+            for search_result in search_response.get('items', []):
+                if search_result['id']['kind'] == 'youtube#video':
+                    video_id = search_result['id']['videoId']
+                    video_title = search_result['snippet']['title']
+                    videos.append({'id': video_id, 'title': video_title})
+
+            next_page_token = search_response.get('nextPageToken')  # 다음 페이지 토큰 추출
+            if not next_page_token:
+                break  # 다음 페이지 토큰이 없으면 반복 종료
+
+        except HttpError as e:
+            logger.error(f'An HTTP error {e.resp.status} occurred: {e.content}')
+            break
+
+    return videos
+
+
+def get_video_details(api_key, video_id):
+    youtube = build('youtube', 'v3', developerKey=api_key)
+    try:
+        video_response = youtube.videos().list(
+            id=video_id,
+            part='statistics,snippet'
+        ).execute()
+
+        for video_result in video_response.get('items', []):
+            title = video_result['snippet'].get('title', 'N/A')
+            description = video_result['snippet'].get('description', 'N/A')
+            view_count = video_result['statistics'].get('viewCount', 'N/A')
+            like_count = video_result['statistics'].get('likeCount', 'N/A')
+            published_at = video_result['snippet'].get('publishedAt', 'N/A')
+            channel_id = video_result['snippet'].get('channelId', 'N/A')
+            return {
+                'title': title,
+                'description': description,
+                'view_count': view_count,
+                'like_count': like_count,
+                'published_at': published_at,
+                'channel_id': channel_id
+            }
+
+    except HttpError as e:
+        logger.error(f'An HTTP error {e.resp.status} occurred: {e.content}')
+        return {
+            'error': True,
+            'message': str(e)
+        }
+
+def get_video_comments(api_key, video_id):
+    youtube = build('youtube', 'v3', developerKey=api_key)
+    comments = []
+    try:
+        comment_response = youtube.commentThreads().list(
+            videoId=video_id,
+            part='snippet',
+            maxResults=100
+        ).execute()
+
+        while comment_response:
+            for comment_result in comment_response.get('items', []):
+                comment = comment_result['snippet']['topLevelComment']['snippet']['textDisplay']
+                comments.append(comment)
+
+            if 'nextPageToken' in comment_response:
+                comment_response = youtube.commentThreads().list(
+                    videoId=video_id,
+                    part='snippet',
+                    maxResults=100,
+                    pageToken=comment_response['nextPageToken']
+                ).execute()
+            else:
+                break
+
+    except HttpError as e:
+        logger.error(f'An HTTP error {e.resp.status} occurred: {e.content}')
+        if 'commentsDisabled' in str(e.content):
+            print(f"Comments are disabled for video ID {video_id}.")
+            logging.warning(f"Comments are disabled for video ID {video_id}.")
         return []
-    return text.split(' | ')
 
-# 각 댓글에 대해 감정 분석 수행
-def analyze_sentiment(comments):
-    sentiments = []
-    for comment in comments:
-        preprocessed_comment = preprocess_text(comment)
-        if len(preprocessed_comment) > 0:
-            result = sentiment_pipeline(preprocessed_comment)[0]['label']
-            if result == 'LABEL_0':
-                sentiments.append('NEGATIVE')
-            elif result == 'LABEL_1':
-                sentiments.append('NEUTRAL')
-            elif result == 'LABEL_2':
-                sentiments.append('POSITIVE')
-    return sentiments
+    return comments
 
-# 감정 분석 수행
-def analyze_sentiments(df):
-    df['전처리댓글내용'] = df['각댓글내용'].apply(lambda x: " | ".join([preprocess_text(comment) for comment in split_comments(x)]))
-    df['개별감정평가'] = df['전처리댓글내용'].apply(lambda x: " | ".join(analyze_sentiment(split_comments(x))))
-    df['긍정수'] = df['개별감정평가'].apply(lambda x: x.split(' | ').count('POSITIVE'))
-    df['중립수'] = df['개별감정평가'].apply(lambda x: x.split(' | ').count('NEUTRAL'))
-    df['부정수'] = df['개별감정평가'].apply(lambda x: x.split(' | ').count('NEGATIVE'))
-    return df
+def get_channel_subscriber_count(api_key, channel_id):
+    youtube = build('youtube', 'v3', developerKey=api_key)
+    try:
+        channel_response = youtube.channels().list(
+            id=channel_id,
+            part='statistics'
+        ).execute()
+
+        for channel_result in channel_response.get('items', []):
+            subscriber_count = channel_result['statistics'].get('subscriberCount', 'N/A')
+            return subscriber_count
+
+    except HttpError as e:
+        logger.error(f'An HTTP error {e.resp.status} occurred: {e.content}')
+        return 'N/A'

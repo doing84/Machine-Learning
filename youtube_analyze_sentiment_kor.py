@@ -23,7 +23,8 @@ logger.info("CSV file loaded successfully.")
 
 # 감정 분석 파이프라인 로드 (한국어 감정 분석 모델 사용)
 logger.info("Loading sentiment analysis model and tokenizer...")
-model_name = "monologg/koelectra-base-v3-discriminator"
+# model_name = "monologg/koelectra-base-v3-discriminator"
+model_name = "beomi/KcELECTRA-base-v2022"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3)
 sentiment_pipeline = TextClassificationPipeline(model=model, tokenizer=tokenizer, max_length=512, truncation=True)
