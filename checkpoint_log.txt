@@ -1,8 +1,8 @@
-./results/checkpoint-54,0.21284452080726624
-./results/checkpoint-108,0.15520605444908142
-./results/checkpoint-162,0.14172406494617462
-./results/checkpoint-216,0.13852757215499878
-./results/checkpoint-270,0.13820146024227142
+./results/checkpoint-54,0.2204650193452835
+./results/checkpoint-108,0.1751418560743332
+./results/checkpoint-162,0.14998409152030945
+./results/checkpoint-216,0.14575141668319702
+./results/checkpoint-270,0.14526493847370148
 ./results/checkpoint-54,0.23253372311592102
 ./results/checkpoint-108,0.16391295194625854
 ./results/checkpoint-162,0.1442032903432846

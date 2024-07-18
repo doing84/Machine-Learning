@@ -1,0 +1,52 @@
+실행방법
+
+1. 유툽 데이터 크롤링(API 이용)
+1) youtube_data_crawler.py 를 실행
+ - 검색어 리스트 설정: search_queries = ['팀버랜드 6인치', '추가', '추가', ...]
+* youtube_search_and_extract.py
+ - 동영상 리스트 가져오는 함수(youtube_search)
+ - 동영상 세부 정보 가져오기 함수 (get_video_details)
+ - 동영상 댓글 가져오기 함수 (get_video_comments)
+ - 채널 구독자 수 가져오기 함수 (get_channel_subscriber_count)
+
+
+2. 유툽 감정분석 수행
+1) youtubeSentimentAnalysis.py 를 실행
+ - analyze_youtube_comments
+  -- 모델과 토크나이저 로드
+  -- GPU 사용 설정
+  -- 유튜브 데이터 로드
+  -- 텍스트 전처리 함수
+  -- 댓글을 개별적으로 분리
+  -- 전처리된 댓글을 위한 함수
+  -- 각 댓글을 전처리하고 전처리된 댓글을 새로운 컬럼에 저장
+  -- 모든 댓글을 단일 리스트로 결합
+  -- 전처리된 댓글을 Dataset 객체로 변환
+  -- Dataset에 대한 감정 분석 수행
+  -- 분석 결과를 댓글별로 나누기
+  -- 분석된 결과를 원래 데이터프레임에 매핑
+  -- 감정 분포 결과를 데이터프레임에 추가
+
+-----------------------------------------------------------
+
+모델 학습 및 평가
+
+1. model_ex.py으로 실행
+ - 데이터 준비
+ - 교차 검증
+ - 최적의 모델을 찾는 임무
+
+2. model_train.py
+ - 모델 훈련, 모델 평가 에 대한 설정 관련된 함수들
+
+
+-------------------------------------------------------------
+
+네이버 쇼핑몰 댓글 데이터 전처리
+1. youtube_analyze_sentiment_ex.py 를 실행
+
+
+2. youtube_analyze_sentiment_naver.py
+ - 데이터 전처리 함수들
+
+

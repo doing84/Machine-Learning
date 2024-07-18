@@ -1,0 +1,7 @@
+Cross-validation accuracies: [0.9536883391160055, 0.9554918527459264, 0.9524743512371756, 0.9566988533494267, 0.9536813518406759]
+Average accuracy: 0.9544069496578421
+Best checkpoint: ./results/checkpoint-216
+Absolute path for the best checkpoint: C:/Users/doing/OneDrive/Documents/ds_study/project/Machine Learning/results/checkpoint-216
+All required files exist in the checkpoint path: C:/Users/doing/OneDrive/Documents/ds_study/project/Machine Learning/results/checkpoint-216
+Using checkpoint path: C:/Users/doing/OneDrive/Documents/ds_study/project/Machine Learning/results/checkpoint-216
+Final accuracy with the best checkpoint: {'accuracy': 0.9639462965756525}
