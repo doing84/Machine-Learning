@@ -10,46 +10,47 @@ file_handler.setLevel(logging.ERROR)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logger.addHandler(file_handler)
 
-# 동영상 리스트 가져오기
-def youtube_search(api_key, query, max_results=50):
+# 동영상 리스트 가져오기 함수
+def youtube_search(api_key, query, max_results=50, page_token=None):
     youtube = build('youtube', 'v3', developerKey=api_key)
     videos = []
-    next_page_token = None
 
-    while len(videos) < max_results:
-        try:
-            search_response = youtube.search().list(
-                q=query,
-                part='id,snippet',
-                maxResults=min(max_results - len(videos), 50),
-                pageToken=next_page_token  # 다음 페이지 토큰 설정
-            ).execute()
+    try:
+        # YouTube API 요청
+        search_response = youtube.search().list(
+            q=query,
+            part='id,snippet',
+            maxResults=max_results,
+            pageToken=page_token  # 다음 페이지 토큰 설정
+        ).execute()
 
-            for search_result in search_response.get('items', []):
-                if search_result['id']['kind'] == 'youtube#video':
-                    video_id = search_result['id']['videoId']
-                    video_title = search_result['snippet']['title']
-                    videos.append({'id': video_id, 'title': video_title})
+        # 검색 결과 처리
+        for search_result in search_response.get('items', []):
+            if search_result['id']['kind'] == 'youtube#video':
+                video_id = search_result['id']['videoId']
+                video_title = search_result['snippet']['title']
+                videos.append({'id': video_id, 'title': video_title})
 
-            next_page_token = search_response.get('nextPageToken')  # 다음 페이지 토큰 추출
-            if not next_page_token:
-                break  # 다음 페이지 토큰이 없으면 반복 종료
+        # 다음 페이지 토큰 추출
+        next_page_token = search_response.get('nextPageToken')
 
-        except HttpError as e:
-            logger.error(f'An HTTP error {e.resp.status} occurred: {e.content}')
-            break
+    except HttpError as e:
+        logger.error(f'An HTTP error {e.resp.status} occurred: {e.content}')
+        next_page_token = None
 
-    return videos
+    return videos, next_page_token  # 동영상 리스트와 다음 페이지 토큰 반환
 
-
+# 동영상 세부 정보 가져오기 함수
 def get_video_details(api_key, video_id):
     youtube = build('youtube', 'v3', developerKey=api_key)
     try:
+        # YouTube API 요청
         video_response = youtube.videos().list(
             id=video_id,
             part='statistics,snippet'
         ).execute()
 
+        # 동영상 세부 정보 추출
         for video_result in video_response.get('items', []):
             title = video_result['snippet'].get('title', 'N/A')
             description = video_result['snippet'].get('description', 'N/A')
@@ -73,21 +74,25 @@ def get_video_details(api_key, video_id):
             'message': str(e)
         }
 
+# 동영상 댓글 가져오기 함수
 def get_video_comments(api_key, video_id):
     youtube = build('youtube', 'v3', developerKey=api_key)
     comments = []
     try:
+        # YouTube API 요청
         comment_response = youtube.commentThreads().list(
             videoId=video_id,
             part='snippet',
             maxResults=100
         ).execute()
 
+        # 모든 페이지의 댓글 수집
         while comment_response:
             for comment_result in comment_response.get('items', []):
                 comment = comment_result['snippet']['topLevelComment']['snippet']['textDisplay']
                 comments.append(comment)
 
+            # 다음 페이지 토큰 확인
             if 'nextPageToken' in comment_response:
                 comment_response = youtube.commentThreads().list(
                     videoId=video_id,
@@ -107,14 +112,17 @@ def get_video_comments(api_key, video_id):
 
     return comments
 
+# 채널 구독자 수 가져오기 함수
 def get_channel_subscriber_count(api_key, channel_id):
     youtube = build('youtube', 'v3', developerKey=api_key)
     try:
+        # YouTube API 요청
         channel_response = youtube.channels().list(
             id=channel_id,
             part='statistics'
         ).execute()
 
+        # 구독자 수 추출
         for channel_result in channel_response.get('items', []):
             subscriber_count = channel_result['statistics'].get('subscriberCount', 'N/A')
             return subscriber_count

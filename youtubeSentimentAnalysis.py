@@ -45,7 +45,12 @@ def analyze_youtube_comments(youtube_data_path, output_path):
 
     # 전처리된 댓글을 위한 함수
     def preprocess_comments(comments):
-        return [preprocess_text(comment) for comment in comments if len(preprocess_text(comment)) > 0]
+        preprocessed_comments = []
+        for comment in comments:
+            preprocessed_comment = preprocess_text(comment)
+            if len(preprocessed_comment) > 0:
+                preprocessed_comments.append(preprocessed_comment)
+        return preprocessed_comments
 
     # 각 댓글을 전처리하고 전처리된 댓글을 새로운 컬럼에 저장
     youtube_df['전처리댓글내용'] = youtube_df['각댓글내용'].apply(lambda x: " | ".join(preprocess_comments(split_comments(x))))
@@ -73,14 +78,17 @@ def analyze_youtube_comments(youtube_data_path, output_path):
     sentiment_idx = 0
     for i, row in youtube_df.iterrows():
         comments = split_comments(row['전처리댓글내용'])
-        sentiments = all_sentiments[sentiment_idx:sentiment_idx + len(comments)]
-        youtube_df.at[i, '개별감정평가'] = " | ".join(sentiments)
-        sentiment_idx += len(comments)
+        if comments:  # 댓글이 있는 경우에만 수행
+            sentiments = all_sentiments[sentiment_idx:sentiment_idx + len(comments)]
+            youtube_df.at[i, '개별감정평가'] = " | ".join(sentiments)
+            sentiment_idx += len(comments)
+        else:  # 댓글이 없는 경우 빈 문자열로 설정
+            youtube_df.at[i, '개별감정평가'] = ""
 
     # 감정 분포 결과를 데이터프레임에 추가
-    youtube_df['긍정수'] = youtube_df['개별감정평가'].apply(lambda x: x.split(' | ').count('POSITIVE'))
-    youtube_df['중립수'] = youtube_df['개별감정평가'].apply(lambda x: x.split(' | ').count('NEUTRAL'))
-    youtube_df['부정수'] = youtube_df['개별감정평가'].apply(lambda x: x.split(' | ').count('NEGATIVE'))
+    youtube_df['긍정수'] = youtube_df['개별감정평가'].apply(lambda x: x.split(' | ').count('POSITIVE') if x else 0)
+    youtube_df['중립수'] = youtube_df['개별감정평가'].apply(lambda x: x.split(' | ').count('NEUTRAL') if x else 0)
+    youtube_df['부정수'] = youtube_df['개별감정평가'].apply(lambda x: x.split(' | ').count('NEGATIVE') if x else 0)
 
     # 결과 저장
     youtube_df.to_csv(output_path, index=False, encoding='utf-8-sig')
