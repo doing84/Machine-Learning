@@ -20,7 +20,11 @@ logger.addHandler(file_handler)
 api_key = 'AIzaSyAOYpm2_Po0dwFTsKHuM0WMMmKmX08NhFk'
 
 # 검색어 리스트 설정
-search_queries = ['팀버랜드 6인치']
+search_queries = ['덩크로우 포톤더스트', '비비안웨스트우드 실버', '아디다스 핸드볼', '오니츠카 옐로우 블랙', '오니츠카 화이트 블랙']
+
+# 날짜 범위 설정
+published_after = '2021-04-12T00:00:00Z'
+published_before = '2024-07-22T23:59:59Z'
 
 if __name__ == "__main__":
     # 전체 결과를 저장할 리스트 초기화
@@ -34,7 +38,7 @@ if __name__ == "__main__":
         while True:
             try:
                 # 검색어로 동영상 리스트 가져오기
-                videos, next_page_token = youtube_search(api_key, search_query, max_results=50, page_token=next_page_token)
+                videos, next_page_token = youtube_search(api_key, search_query, max_results=50, page_token=next_page_token, published_after=published_after, published_before=published_before)
                 total_videos += len(videos)
                 print(f"Fetched {len(videos)} videos. Total videos fetched so far: {total_videos}")
 

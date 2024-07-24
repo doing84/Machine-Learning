@@ -11,7 +11,7 @@ file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(mes
 logger.addHandler(file_handler)
 
 # 동영상 리스트 가져오기 함수
-def youtube_search(api_key, query, max_results=50, page_token=None):
+def youtube_search(api_key, query, max_results=50, page_token=None, published_after=None, published_before=None):
     youtube = build('youtube', 'v3', developerKey=api_key)
     videos = []
 
@@ -21,7 +21,9 @@ def youtube_search(api_key, query, max_results=50, page_token=None):
             q=query,
             part='id,snippet',
             maxResults=max_results,
-            pageToken=page_token  # 다음 페이지 토큰 설정
+            pageToken=page_token,  # 다음 페이지 토큰 설정
+            publishedAfter=published_after,
+            publishedBefore=published_before
         ).execute()
 
         # 검색 결과 처리
