@@ -3,6 +3,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException 
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium import webdriver
 from bs4 import BeautifulSoup
@@ -98,7 +99,7 @@ def get_video_details(video_id):
     driver = driver_pool.get_driver()
     try:
         driver.get(f"https://www.youtube.com/watch?v={video_id}")
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "h1.title")))
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "h1.title")))
 
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, 'html.parser')
@@ -111,7 +112,7 @@ def get_video_details(video_id):
         view_count_element = soup.select_one("span.view-count")
         view_count = ''.join(filter(str.isdigit, view_count_element.text)) if view_count_element else "0"
 
-        like_count_element = soup.select_one("div#top-level-buttons-computed yt-formatted-string")
+        like_count_element = soup.select_one("#top-level-buttons-computed > segmented-like-dislike-button-view-model > yt-smartimation > div > div > like-button-view-model > toggle-button-view-model > button-view-model > button > div.yt-spec-button-shape-next__button-text-content")
         if like_count_element:
             like_count_text = like_count_element.text
             try:
@@ -121,17 +122,18 @@ def get_video_details(video_id):
         else:
             like_count = 0
 
-        published_at = soup.select_one("div#info-strings yt-formatted-string").text if soup.select_one("div#info-strings yt-formatted-string") else ""
-        channel_link_element = soup.select_one("a.yt-simple-endpoint.style-scope.yt-formatted-string")
-        channel_id = ""
+        published_at_element = soup.select_one("div#info-strings yt-formatted-string")
+        published_at = published_at_element.text if published_at_element else ""
+
+        channel_link_element = soup.select_one("#channel-name a")
         if channel_link_element:
             channel_url = channel_link_element.get('href')
-            if "/c/" in channel_url:
-                channel_id = channel_url.split("/c/")[-1]
-            elif "/channel/" in channel_url:
-                channel_id = channel_url.split("/channel/")[-1]
-            elif "/user/" in channel_url:
-                channel_id = channel_url.split("/user/")[-1]
+            if "/c/" in channel_url or "/channel/" in channel_url or "/user/" in channel_url:
+                channel_id = channel_url.split("/")[-1]
+            else:
+                channel_id = channel_url
+        else:
+            channel_id = ""
 
         return {
             'title': title,
@@ -147,6 +149,8 @@ def get_video_details(video_id):
     finally:
         driver_pool.return_driver(driver)
 
+
+
 def get_video_comments(video_id):
     driver = driver_pool.get_driver()
     try:
@@ -155,39 +159,42 @@ def get_video_comments(video_id):
 
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
         comments = []
-        scroll_pause_time = 2  # 스크롤 후 대기 시간 설정
 
         while True:
             driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-            time.sleep(scroll_pause_time)
+            time.sleep(1.5)
+
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, 'html.parser')
+            comment_elements = soup.select("ytd-comment-thread-renderer span#content-text")
+            comments.extend([elem.text for elem in comment_elements])
 
             new_height = driver.execute_script("return document.documentElement.scrollHeight")
             if new_height == last_height:
                 break
             last_height = new_height
 
-            page_source = driver.page_source
-            soup = BeautifulSoup(page_source, 'html.parser')
-            comment_elements = soup.select("ytd-comment-thread-renderer #content-text")
-            comments.extend([elem.text for elem in comment_elements])
-
         return comments
+    except TimeoutException:
+        logger.warning(f"Comments are disabled for video ID {video_id}")
+        return []
     except Exception as e:
         logger.error(f"Error fetching comments for video ID {video_id}: {e}")
         return []
     finally:
         driver_pool.return_driver(driver)
 
+
 def get_channel_subscriber_count(channel_id):
     driver = driver_pool.get_driver()
     try:
         driver.get(f"https://www.youtube.com/{channel_id}")
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "yt-formatted-string#subscriber-count")))
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "yt-spec-button-shape-next__button-text-content")))
 
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, 'html.parser')
 
-        subscriber_count_element = soup.select_one("yt-formatted-string#subscriber-count")
+        subscriber_count_element = soup.select_one("#top-level-buttons-computed > segmented-like-dislike-button-view-model > yt-smartimation > div > div > like-button-view-model > toggle-button-view-model > button-view-model > button > div.yt-spec-button-shape-next__button-text-content")
         if subscriber_count_element:
             subscriber_count_text = subscriber_count_element.text
             try:
@@ -203,3 +210,4 @@ def get_channel_subscriber_count(channel_id):
         return 0
     finally:
         driver_pool.return_driver(driver)
+
